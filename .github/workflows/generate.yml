@@ -42,8 +42,6 @@ jobs:
           PIXABAY_KEY=${{ secrets.PIXABAY_KEY }}
           OUTPUT_DIR=outputs
           FONT_PATH=/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf
-          YT_CLIENT_SECRETS=secrets/client_secret.json
-          YT_TOKEN_FILE=secrets/token.pickle
           YT_UPLOAD=true
           SUBSCRIBE_TEXT=오늘의 은혜가 계속되기를 기도하며 [구독]하고 다음 말씀도 놓치지 마세요
           TTS_VOICE=ko-KR-SunHiNeural
