@@ -1,0 +1,36 @@
+# 가상환경
+.venv/
+.venv310/
+__pycache__/
+*.pyc
+
+# 인증/시크릿 (절대 커밋 금지 - GitHub Secrets로 관리)
+.env
+*.env
+env_fixed.txt
+secrets/
+*.pickle
+client_secret*.json
+service_account.json
+
+# 생성된 산출물 (용량이 커서 저장소에 안 넣음 - Actions artifact로만 다운로드)
+outputs/
+
+# GUI 임시 파일
+_gui_input.txt
+
+# 목소리 미리듣기 샘플 (테스트용, 저장소에 불필요)
+src/voice_preview/
+
+# assets 폴더: 자동 캐싱된 배경 이미지는 제외하고
+# 기본 폴백 이미지 몇 개만 저장소에 남김
+assets/*
+!assets/default_bg1.jpg
+!assets/default_bg2.jpg
+!assets/fallback*.jpg
+!assets/msg_bg*.jpg
+!assets/script_bg*.jpg
+
+# 옛날 잔재
+archive/
+archive_old/

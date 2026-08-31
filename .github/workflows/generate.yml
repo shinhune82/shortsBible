@@ -1,0 +1,81 @@
+name: 오늘의 말씀 - 영상 생성
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'input.txt'
+  workflow_dispatch:
+    inputs:
+      do_upload:
+        description: '유튜브 업로드까지 진행 (체크 해제하면 로컬 생성만)'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 파이썬 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: ffmpeg / 한글 폰트 설치
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-nanum
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: 비밀 정보 복원 (GitHub Secrets → 실제 파일)
+        run: |
+          mkdir -p secrets
+          echo "${{ secrets.YT_CLIENT_SECRETS_B64 }}" | base64 -d > secrets/client_secret.json
+          echo "${{ secrets.YT_TOKEN_PICKLE_B64 }}" | base64 -d > secrets/token.pickle
+          cat > .env << ENV_EOF
+          UNSPLASH_KEY=${{ secrets.UNSPLASH_KEY }}
+          PEXELS_KEY=${{ secrets.PEXELS_KEY }}
+          PIXABAY_KEY=${{ secrets.PIXABAY_KEY }}
+          OUTPUT_DIR=outputs
+          FONT_PATH=/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf
+          YT_CLIENT_SECRETS=secrets/client_secret.json
+          YT_TOKEN_FILE=secrets/token.pickle
+          YT_UPLOAD=true
+          SUBSCRIBE_TEXT=오늘의 은혜가 계속되기를 기도하며 [구독]하고 다음 말씀도 놓치지 마세요
+          TTS_VOICE=ko-KR-SunHiNeural
+          ENV_EOF
+
+      - name: 업로드 여부 판단
+        id: upload_flag
+        run: |
+          # 1순위: workflow_dispatch 로 수동 실행했을 때의 입력값
+          # 2순위: 저장소에 커밋된 do_upload.flag 파일 (앱에서 커밋할 때 같이 씀)
+          # 둘 다 없으면 기본값 true
+          FLAG=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.do_upload }}" = "false" ]; then
+              FLAG="--no-upload"
+            fi
+          elif [ -f do_upload.flag ] && [ "$(cat do_upload.flag | tr -d '[:space:]')" = "false" ]; then
+            FLAG="--no-upload"
+          fi
+          echo "flag=$FLAG" >> "$GITHUB_OUTPUT"
+
+      - name: 영상 생성 실행
+        run: |
+          cd src
+          python main.py --input ../input.txt ${{ steps.upload_flag.outputs.flag }}
+
+      - name: 결과물 다운로드용으로 보관
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: outputs
+          path: outputs/
+          retention-days: 14
