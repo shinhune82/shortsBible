@@ -3,8 +3,6 @@ name: 오늘의 말씀 - 영상 생성
 on:
   push:
     branches: [main]
-    paths:
-      - 'input.txt'
   workflow_dispatch:
     inputs:
       do_upload:
