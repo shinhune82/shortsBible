@@ -57,7 +57,8 @@ def parse_devotional_text(text: str):
         current_key = None
         for line in block.split("\n"):
             line = line.rstrip()
-            m = re.match(r'\*\*(.+?):\*\*\s*(.*)', line)
+            # "**날짜:** 값" 형식과 "날짜: 값" (별표 없는) 형식을 둘 다 인식
+            m = re.match(r'^\*{0,2}([^\*:\n]+):\*{0,2}\s*(.*)$', line)
             if m:
                 current_key = m.group(1).strip()
                 fields[current_key] = m.group(2).strip()
