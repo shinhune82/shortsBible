@@ -2,9 +2,12 @@
 import re
 import datetime as dt
 
-# 날짜 줄 형식: "2026-8-12 수 출근" / "2026-8-15 토 아침" 등
-# (연-월-일)(요일 한글자)(시기: 자유형식)
-DATE_LINE_RE = re.compile(r'^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\S)\s+(\S+)\s*$')
+# 날짜 줄 형식 예시:
+#   "2026-8-12 수 출근"      (연도 포함, 요일 뒤에 공백)
+#   "09.09 (수) 아침"        (연도 없음, 요일 괄호로 감쌈)
+# 공통 규칙: [날짜] [요일] [시기] 세 부분으로 구성. 요일은 표시용일 뿐 실제
+# 계산엔 안 쓰고(날짜에서 재계산 가능), 연도가 없으면 오늘 날짜 기준으로
+# 자동 추론(이미 지난 날짜면 내년으로 넘김).
 
 # 주말은 "출근" 대신 "아침"이라는 라벨을 쓰는데, 실질적으로는 같은 시간대(오전)이므로
 # 파싱 단계에서 아예 "출근"으로 통일. 이후 파일명/예약 시각 등 모든 곳에서
@@ -14,17 +17,46 @@ TIME_TYPE_ALIASES = {
 }
 
 
+def _parse_date_component(date_str: str) -> dt.date:
+    date_str = date_str.strip()
+
+    # 연도 포함: 2026-8-12 / 2026.8.12
+    m = re.match(r'^(\d{4})[-.](\d{1,2})[-.](\d{1,2})$', date_str)
+    if m:
+        y, mo, d = (int(x) for x in m.groups())
+        return dt.date(y, mo, d)
+
+    # 연도 없음: 09.09 / 9.9 / 09-09
+    m = re.match(r'^(\d{1,2})[-.](\d{1,2})$', date_str)
+    if m:
+        mo, d = (int(x) for x in m.groups())
+        today = dt.date.today()
+        candidate = dt.date(today.year, mo, d)
+        if candidate < today:
+            candidate = dt.date(today.year + 1, mo, d)
+        return candidate
+
+    raise ValueError(f"날짜를 인식할 수 없습니다: '{date_str}'")
+
+
 def _parse_date_field(raw: str):
     raw = raw.strip()
-    m = DATE_LINE_RE.match(raw)
-    if not m:
+    # 괄호는 공백으로 치환해서 "09.09 (수) 아침" -> "09.09  수  아침" 처럼 통일
+    cleaned = raw.replace("(", " ").replace(")", " ")
+    tokens = cleaned.split()
+
+    if len(tokens) < 3:
         raise ValueError(
             f"날짜 형식을 인식할 수 없습니다: '{raw}' "
-            f"(예: '2026-8-12 수 출근')"
+            f"(예: '2026-8-12 수 출근' 또는 '09.09 (수) 아침')"
         )
-    y, mo, d, _weekday, time_type = m.groups()
+
+    date_part = tokens[0]
+    time_type = tokens[-1]
+    # tokens[1:-1] 은 요일 표시라 실제로는 사용 안 함
+
+    date_obj = _parse_date_component(date_part)
     time_type = TIME_TYPE_ALIASES.get(time_type, time_type)
-    date_obj = dt.date(int(y), int(mo), int(d))
     return date_obj, time_type
 
 
