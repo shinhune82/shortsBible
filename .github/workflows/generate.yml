@@ -11,6 +11,9 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write   # 생성된 스크립트를 저장소에 다시 커밋하기 위해 필요
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -40,7 +43,7 @@ jobs:
           UNSPLASH_KEY=${{ secrets.UNSPLASH_KEY }}
           PEXELS_KEY=${{ secrets.PEXELS_KEY }}
           PIXABAY_KEY=${{ secrets.PIXABAY_KEY }}
-          OUTPUT_DIR=outputs
+          OUTPUT_DIR=${{ github.workspace }}/outputs
           FONT_PATH=/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf
           YT_UPLOAD=true
           SUBSCRIBE_TEXT=오늘의 은혜가 계속되기를 기도하며 [구독]하고 다음 말씀도 놓치지 마세요
@@ -75,3 +78,47 @@ jobs:
           name: outputs
           path: outputs/
           retention-days: 14
+
+      - name: 생성된 스크립트를 저장소에 영구 보관 (Suno 등에서 재사용)
+        if: always()
+        env:
+          SCRIPTS_ARCHIVE_CLEANUP_DAYS: "30"   # 30일(약 1달) 지난 스크립트는 자동 삭제. 분기 단위면 90으로 변경
+        run: |
+          mkdir -p scripts_archive
+          if [ -d outputs/scripts ]; then
+            cp outputs/scripts/*.txt scripts_archive/ 2>/dev/null || true
+          fi
+
+          # 파일명(script_YYYY-MM-DD_시기.txt)에 박힌 날짜 기준으로 오래된 것 정리
+          # (git 체크아웃 시 파일 수정시각이 매번 초기화되므로 파일 시스템 mtime 대신
+          #  파일명 안의 날짜를 직접 파싱해서 판단함)
+          python3 - << 'PY'
+          import os, re, datetime as dt
+
+          days = int(os.environ.get("SCRIPTS_ARCHIVE_CLEANUP_DAYS", "30"))
+          cutoff = dt.date.today() - dt.timedelta(days=days)
+          folder = "scripts_archive"
+          removed = 0
+
+          if os.path.isdir(folder):
+              for fname in os.listdir(folder):
+                  m = re.match(r"script_(\d{4}-\d{2}-\d{2})_", fname)
+                  if not m:
+                      continue
+                  file_date = dt.date.fromisoformat(m.group(1))
+                  if file_date < cutoff:
+                      os.remove(os.path.join(folder, fname))
+                      removed += 1
+
+          print(f"[정리] {days}일 지난 스크립트 {removed}개 삭제")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts_archive
+          if ! git diff --cached --quiet; then
+            git commit -m "스크립트 보관/정리 ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+            git push
+          else
+            echo "변경된 스크립트가 없습니다."
+          fi
