@@ -14,6 +14,7 @@ import datetime as dt
 # 별도 처리 없이 "출근"으로만 다루면 됨.
 TIME_TYPE_ALIASES = {
     "아침": "출근",
+    "저녁": "자기전",
 }
 
 

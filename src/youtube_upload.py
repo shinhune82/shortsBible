@@ -38,6 +38,7 @@ KST = ZoneInfo("Asia/Seoul")
 SCHEDULE_MAP = {
     "출근": {"hour": 8,  "minute": 30},
     "아침": {"hour": 8,  "minute": 30},
+    "저녁": {"hour": 18, "minute": 0},
     "자기전": {"hour": 21, "minute": 0},
 }
 
