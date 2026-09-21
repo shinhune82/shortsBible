@@ -15,6 +15,14 @@ OUTPUT_DIR = os.getenv("OUTPUT_DIR", "outputs")
 IMG_DIR = Path(OUTPUT_DIR) / "bg_images"
 IMG_DIR.mkdir(parents=True, exist_ok=True)
 
+# 이 파일(compose.py)은 src 폴더 안에 있고, assets 폴더는 그 한 단계 위(저장소
+# 최상위)에 있음을 기준으로 경로를 계산. cwd가 src든 repo root든 항상 정확히
+# 같은 assets 폴더를 가리키도록 함 (예전엔 상대경로 "assets" 라서 cwd에 따라
+# 엉뚱한 곳을 찾는 버그가 있었음).
+_SRC_DIR = Path(__file__).resolve().parent
+ASSETS_DIR = _SRC_DIR.parent / "assets"
+
+
 def download_image(url: str, filename: str) -> str:
     resp = requests.get(url, stream=True, timeout=15)
     resp.raise_for_status()
@@ -55,14 +63,14 @@ def get_background_images_from_title(title: str):
     # 여기까지 왔는데도 paths가 비어 있으면 assets 폴더에서 랜덤 선택
     if not paths:
         print("[BG] API에서 이미지를 못 찾아서 assets 폴더의 기본 배경을 랜덤 사용합니다.")
-        assets_dir = Path("assets")
-        # jpg, jpeg, png 파일만 대상으로
-        candidates = list(assets_dir.glob("*.jpg")) + \
-                     list(assets_dir.glob("*.jpeg")) + \
-                     list(assets_dir.glob("*.png"))
+        candidates = list(ASSETS_DIR.glob("*.jpg")) + \
+                     list(ASSETS_DIR.glob("*.jpeg")) + \
+                     list(ASSETS_DIR.glob("*.png"))
 
         if len(candidates) == 0:
-            raise RuntimeError("assets 폴더에 사용할 수 있는 이미지가 없습니다.")
+            raise RuntimeError(
+                f"assets 폴더에 사용할 수 있는 이미지가 없습니다. (찾은 위치: {ASSETS_DIR})"
+            )
 
         # 2장 이상이면 무작위 2장, 1장이면 그 한 장을 두 번 사용
         if len(candidates) >= 2:
