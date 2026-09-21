@@ -319,21 +319,42 @@ def main():
     total = len(entries)
     print(f"총 {total}개 항목 처리 예정 (입력 파일: {args.input})")
 
+    failed = []
+
     for i, entry in enumerate(entries, 1):
         print(f"\n[{i}/{total}]")
-        process_entry(
-            entry=entry,
-            output_dir=OUTPUT_DIR,
-            video_size=VIDEO_SIZE,
-            do_upload=do_upload,
-        )
+        try:
+            process_entry(
+                entry=entry,
+                output_dir=OUTPUT_DIR,
+                video_size=VIDEO_SIZE,
+                do_upload=do_upload,
+            )
+        except Exception as e:
+            # 항목 하나가 실패해도 배치 전체를 멈추지 않고 다음 항목으로 계속 진행.
+            # (예전엔 여기서 예외가 그대로 터져서, 실패한 항목 이후의 모든 날짜가
+            #  통째로 스킵되는 문제가 있었음)
+            import traceback
+            print(f"[오류] {entry['date']} / {entry['time_type']} 처리 실패, 다음 항목으로 계속 진행합니다.")
+            traceback.print_exc()
+            failed.append((entry, str(e)))
 
     print(f"\n{'='*50}")
-    print(f"모든 처리 완료! ({total}개)")
+    ok_count = total - len(failed)
+    print(f"처리 완료: 성공 {ok_count}개 / 실패 {len(failed)}개 (총 {total}개)")
+    if failed:
+        print("실패한 항목:")
+        for entry, err in failed:
+            print(f"  - {entry['date']} / {entry['time_type']} / {entry['title']}: {err}")
     print(f"{'='*50}")
 
     # 이번 배치 전체를 모은 스크립트 파일도 하나 더 저장
     save_batch_script_file(entries, OUTPUT_DIR)
+
+    # 실패한 항목이 하나라도 있으면 워크플로우 자체는 "실패"로 표시되도록
+    # (Actions 화면에서 빨간불로 바로 알아챌 수 있게)
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
