@@ -36,28 +36,42 @@ _face_cascades = None
 
 
 def _load_face_cascades():
-    """OpenCV 얼굴 검출기(정면 + 측면)를 한 번만 로드. 없으면 빈 리스트."""
+    """OpenCV 얼굴 검출기(정면 + 측면)를 한 번만 로드. 실패하면 빈 리스트(필터 생략)."""
     global _face_cascades
     if _face_cascades is not None:
         return _face_cascades
+
     try:
         import cv2
-    except ImportError:
-        print("[BG] opencv 미설치 - 얼굴 클로즈업 필터를 건너뜁니다.")
+        if not hasattr(cv2, "CascadeClassifier"):
+            raise RuntimeError(
+                f"cv2 {cv2.__version__} 에 CascadeClassifier 가 없습니다 "
+                f"(OpenCV 5 이상은 미지원 - requirements.txt 에서 4.x 로 고정 필요)"
+            )
+        cascades = []
+        for name in ("haarcascade_frontalface_default.xml", "haarcascade_profileface.xml"):
+            c = cv2.CascadeClassifier(cv2.data.haarcascades + name)
+            if not c.empty():
+                cascades.append(c)
+        _face_cascades = cascades
+    except Exception as e:
+        # 얼굴 필터는 부가 기능이므로, 문제가 있어도 영상 생성 자체는 계속 진행
+        print(f"[BG] 얼굴 검출기를 불러오지 못해 얼굴 클로즈업 필터를 건너뜁니다: {e}")
         _face_cascades = []
-        return _face_cascades
 
-    cascades = []
-    for name in ("haarcascade_frontalface_default.xml", "haarcascade_profileface.xml"):
-        c = cv2.CascadeClassifier(cv2.data.haarcascades + name)
-        if not c.empty():
-            cascades.append(c)
-    _face_cascades = cascades
-    return cascades
+    return _face_cascades
 
 
 def has_large_face(image_path) -> bool:
-    """이미지에 '큰 얼굴'(인물 클로즈업)이 있으면 True."""
+    """이미지에 '큰 얼굴'(인물 클로즈업)이 있으면 True. 오류 시 False(필터 생략)."""
+    try:
+        return _has_large_face(image_path)
+    except Exception as e:
+        print(f"[BG] 얼굴 검출 중 오류, 이 이미지는 필터 없이 통과시킵니다: {e}")
+        return False
+
+
+def _has_large_face(image_path) -> bool:
     cascades = _load_face_cascades()
     if not cascades:
         return False
